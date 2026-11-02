@@ -1,0 +1,26 @@
+{
+  "classifier_probability_order": [
+    "ADI",
+    "BACK",
+    "DEB",
+    "LYM",
+    "MUC",
+    "MUS",
+    "NORM",
+    "STR",
+    "TUM"
+  ],
+  "probability_column_for_class": {
+    "ADI": "p_ADI",
+    "BACK": "p_BACK",
+    "DEB": "p_DEB",
+    "LYM": "p_LYM",
+    "MUC": "p_MUC",
+    "MUS": "p_MUS",
+    "NORM": "p_NORM",
+    "STR": "p_STR",
+    "TUM": "p_TUM"
+  },
+  "encoder_weights": "ResNet18_Weights.IMAGENET1K_V1",
+  "encoder_checkpoint_sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec"
+}

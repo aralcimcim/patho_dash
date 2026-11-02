@@ -1,0 +1,316 @@
+// Create each named expression as a SEPARATE measure in predictions.
+// Do not paste this whole file into one New measure formula box.
+// Formatting: percentages for ratios, whole numbers for counts, 0.00 for cutoffs.
+// All measures keep report filters unless they explicitly remove class axes.
+
+Evaluated Images =
+COALESCE(COUNTROWS(predictions), 0)
+
+Correct Predictions =
+COALESCE(
+    CALCULATE(COUNTROWS(predictions), KEEPFILTERS(predictions[is_correct] = 1)),
+    0
+)
+
+Overall Accuracy =
+DIVIDE([Correct Predictions], [Evaluated Images])
+
+// True/predicted class dimensions are role-specific and single-direction.
+// Class measures below compare each TRUE-axis class against ALL predicted classes.
+// They also remove direct fact-table class filters; all other filters remain.
+
+Class True Positives =
+VAR Code = SELECTEDVALUE(class_lookup[class_code])
+RETURN
+IF(
+    NOT ISBLANK(Code),
+    COALESCE(
+        CALCULATE(
+            COUNTROWS(predictions),
+            REMOVEFILTERS(class_lookup), REMOVEFILTERS(predicted_classes),
+            REMOVEFILTERS(predictions[true_class], predictions[predicted_class]),
+            predictions[true_class] = Code,
+            predictions[predicted_class] = Code
+        ),
+        0
+    )
+)
+
+Class Actual Images =
+VAR Code = SELECTEDVALUE(class_lookup[class_code])
+RETURN
+IF(
+    NOT ISBLANK(Code),
+    COALESCE(
+        CALCULATE(
+            COUNTROWS(predictions),
+            REMOVEFILTERS(class_lookup), REMOVEFILTERS(predicted_classes),
+            REMOVEFILTERS(predictions[true_class], predictions[predicted_class]),
+            predictions[true_class] = Code
+        ),
+        0
+    )
+)
+
+Class Predicted Images =
+VAR Code = SELECTEDVALUE(class_lookup[class_code])
+RETURN
+IF(
+    NOT ISBLANK(Code),
+    COALESCE(
+        CALCULATE(
+            COUNTROWS(predictions),
+            REMOVEFILTERS(class_lookup), REMOVEFILTERS(predicted_classes),
+            REMOVEFILTERS(predictions[true_class], predictions[predicted_class]),
+            predictions[predicted_class] = Code
+        ),
+        0
+    )
+)
+
+Class Recall =
+DIVIDE([Class True Positives], [Class Actual Images])
+
+Class Precision =
+DIVIDE([Class True Positives], [Class Predicted Images])
+
+Class F1 =
+IF(
+    HASONEVALUE(class_lookup[class_code]),
+    DIVIDE(2 * [Class True Positives], [Class Actual Images] + [Class Predicted Images], 0)
+)
+
+Macro F1 =
+VAR CohortCount =
+    CALCULATE(
+        [Evaluated Images],
+        REMOVEFILTERS(class_lookup), REMOVEFILTERS(predicted_classes),
+        REMOVEFILTERS(predictions[true_class], predictions[predicted_class])
+    )
+RETURN
+IF(
+    CohortCount > 0,
+    AVERAGEX(ALL(class_lookup), [Class F1])
+)
+
+Confusion Count =
+COALESCE([Evaluated Images], 0)
+
+// Fixed high-confidence benchmark: confidence >= 0.90, independent of slicers.
+
+High Confidence Images =
+COALESCE(
+    CALCULATE(COUNTROWS(predictions), KEEPFILTERS(predictions[confidence] >= 0.90)),
+    0
+)
+
+High Confidence Errors =
+COALESCE(
+    CALCULATE(
+        COUNTROWS(predictions),
+        KEEPFILTERS(predictions[confidence] >= 0.90),
+        KEEPFILTERS(predictions[is_correct] = 0)
+    ),
+    0
+)
+
+High Confidence Error Rate =
+DIVIDE([High Confidence Errors], [High Confidence Images])
+
+// Review and tumour slicers MUST use two separate disconnected tables.
+// Enable single selection; defaults apply if selection is absent or ambiguous.
+
+Review Cutoff =
+SELECTEDVALUE(review_thresholds[threshold], 0.80)
+
+Tumour Cutoff =
+SELECTEDVALUE(tumour_thresholds[threshold], 0.50)
+
+Flagged for Review =
+VAR Cutoff = [Review Cutoff]
+RETURN
+COALESCE(
+    CALCULATE(COUNTROWS(predictions), KEEPFILTERS(predictions[confidence] < Cutoff)),
+    0
+)
+
+Review Proportion =
+DIVIDE([Flagged for Review], [Evaluated Images])
+
+Retained Images =
+VAR Cutoff = [Review Cutoff]
+RETURN
+COALESCE(
+    CALCULATE(COUNTROWS(predictions), KEEPFILTERS(predictions[confidence] >= Cutoff)),
+    0
+)
+
+Coverage =
+DIVIDE([Retained Images], [Evaluated Images])
+
+Correct Retained =
+VAR Cutoff = [Review Cutoff]
+RETURN
+COALESCE(
+    CALCULATE(
+        COUNTROWS(predictions),
+        KEEPFILTERS(predictions[confidence] >= Cutoff),
+        KEEPFILTERS(predictions[is_correct] = 1)
+    ),
+    0
+)
+
+Retained Accuracy =
+DIVIDE([Correct Retained], [Retained Images])
+
+Tumour TP =
+VAR Cutoff = [Tumour Cutoff]
+RETURN
+COALESCE(
+    CALCULATE(
+        COUNTROWS(predictions),
+        KEEPFILTERS(predictions[is_tumour_true] = 1),
+        KEEPFILTERS(predictions[p_TUM] >= Cutoff)
+    ),
+    0
+)
+
+Tumour FP =
+VAR Cutoff = [Tumour Cutoff]
+RETURN
+COALESCE(
+    CALCULATE(
+        COUNTROWS(predictions),
+        KEEPFILTERS(predictions[is_tumour_true] = 0),
+        KEEPFILTERS(predictions[p_TUM] >= Cutoff)
+    ),
+    0
+)
+
+Tumour TN =
+VAR Cutoff = [Tumour Cutoff]
+RETURN
+COALESCE(
+    CALCULATE(
+        COUNTROWS(predictions),
+        KEEPFILTERS(predictions[is_tumour_true] = 0),
+        KEEPFILTERS(predictions[p_TUM] < Cutoff)
+    ),
+    0
+)
+
+Tumour FN =
+VAR Cutoff = [Tumour Cutoff]
+RETURN
+COALESCE(
+    CALCULATE(
+        COUNTROWS(predictions),
+        KEEPFILTERS(predictions[is_tumour_true] = 1),
+        KEEPFILTERS(predictions[p_TUM] < Cutoff)
+    ),
+    0
+)
+
+Tumour Sensitivity =
+DIVIDE([Tumour TP], [Tumour TP] + [Tumour FN])
+
+Tumour Specificity =
+DIVIDE([Tumour TN], [Tumour TN] + [Tumour FP])
+
+Tumour Precision =
+DIVIDE([Tumour TP], [Tumour TP] + [Tumour FP])
+
+// Optional audit measure: must always be 0, even while changing thresholds.
+Tumour Partition Check =
+[Tumour TP] + [Tumour FP] + [Tumour TN] + [Tumour FN] - [Evaluated Images]
+
+// Confidence bins are disconnected, with [lower, upper) bounds except final bin,
+// which includes exactly 1.00. Use both series on a stacked column chart.
+
+Confidence Bin Images =
+VAR LowerBound = SELECTEDVALUE(confidence_bins[lower])
+VAR UpperBound = SELECTEDVALUE(confidence_bins[upper])
+RETURN
+IF(
+    HASONEVALUE(confidence_bins[bin_order]),
+    COALESCE(
+        CALCULATE(
+            COUNTROWS(predictions),
+            KEEPFILTERS(predictions[confidence] >= LowerBound),
+            KEEPFILTERS(
+                predictions[confidence] < UpperBound
+                || (UpperBound = 1 && predictions[confidence] <= 1)
+            )
+        ),
+        0
+    )
+)
+
+Confidence Correct =
+CALCULATE([Confidence Bin Images], KEEPFILTERS(predictions[is_correct] = 1))
+
+Confidence Incorrect =
+CALCULATE([Confidence Bin Images], KEEPFILTERS(predictions[is_correct] = 0))
+
+// Imported fixed benchmarks are DISCONNECTED. These never react to slicers.
+// They refer to the whole held-out set with protocol cutoffs 0.80/0.50/0.90.
+
+Benchmark Evaluated Images =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "evaluated_images", model_metrics[class_code] = "ALL"
+)
+
+Benchmark Accuracy =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "accuracy", model_metrics[class_code] = "ALL"
+)
+
+Benchmark Macro F1 =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "macro_f1", model_metrics[class_code] = "ALL"
+)
+
+Benchmark Tumour Sensitivity =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "tumour_sensitivity", model_metrics[class_code] = "ALL"
+)
+
+Benchmark Tumour Specificity =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "tumour_specificity", model_metrics[class_code] = "ALL"
+)
+
+Benchmark Review Proportion =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "review_proportion", model_metrics[class_code] = "ALL"
+)
+
+Benchmark Coverage =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "coverage", model_metrics[class_code] = "ALL"
+)
+
+Benchmark Retained Accuracy =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "retained_accuracy", model_metrics[class_code] = "ALL"
+)
+
+Benchmark High Confidence Errors =
+CALCULATE(
+    MAX(model_metrics[value]), REMOVEFILTERS(model_metrics),
+    model_metrics[metric_name] = "high_confidence_errors", model_metrics[class_code] = "ALL"
+)
+
+Accuracy Difference =
+[Overall Accuracy] - [Benchmark Accuracy]
+
+Macro F1 Difference =
+[Macro F1] - [Benchmark Macro F1]

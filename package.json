@@ -1,0 +1,15 @@
+{
+  "name": "german-pathology-ai-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static, reproducible pathology model evaluation dashboard",
+  "scripts": {
+    "test": "node --test tests/dashboard.test.mjs",
+    "test:browser": "playwright test --config tests/dashboard.config.cjs",
+    "serve": "python3 -m http.server 4179 --bind 127.0.0.1 --directory docs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2"
+  }
+}

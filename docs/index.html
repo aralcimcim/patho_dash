@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Interactive evaluation of a frozen ResNet-18 tissue classifier on 7,180 held-out colorectal histology image patches. Explore errors, confidence, review coverage and tumour thresholds."
+    />
+    <meta name="theme-color" content="#174ea6" />
+    <title>German Pathology AI — Model Evaluation | Aral Cimcim</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23174ea6'/%3E%3Cpath d='M7 23V14h4v9zm7 0V7h4v16zm7 0V11h4v12z' fill='white'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./app.mjs"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to dashboard</a>
+    <header class="site-header">
+      <a class="brand" href="https://aralcimcim.github.io/">Aral Cimcim</a>
+      <nav aria-label="Project navigation">
+        <a href="https://aralcimcim.github.io/industry/">Software</a>
+        <a href="https://github.com/aralcimcim/german-pathology-ai"
+          >Source code <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main id="main" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">COMPUTATIONAL PATHOLOGY · MODEL EVALUATION</p>
+          <h1>German Pathology AI</h1>
+          <p class="subtitle">
+            Frozen ResNet-18 + logistic regression · Independent CRC-VAL-HE-7K
+            evaluation
+          </p>
+        </div>
+        <button id="reset-defaults" class="secondary" type="button" disabled>
+          Reset defaults
+        </button>
+      </header>
+      <p id="load-status" class="load-status" role="status" aria-live="polite">
+        Loading and validating the saved evaluation…
+      </p>
+      <noscript
+        ><p class="notice">
+          Enable JavaScript to use this dashboard. The
+          <a href="./data/model_metrics.csv">saved metric results</a> and
+          <a href="https://github.com/aralcimcim/german-pathology-ai"
+            >reproduction notebook</a
+          >
+          are available without it.
+        </p></noscript
+      >
+      <div id="dashboard" hidden>
+        <section class="metrics-grid" aria-label="Fixed multiclass benchmarks">
+          <article class="metric">
+            <span class="metric-label">Evaluated patches</span
+            ><strong id="evaluated-images">—</strong
+            ><span class="metric-note">Independent held-out set</span>
+          </article>
+          <article class="metric">
+            <span class="metric-label">Overall accuracy</span
+            ><strong id="overall-accuracy">—</strong
+            ><span class="metric-note">Fixed multiclass prediction</span>
+          </article>
+          <article class="metric">
+            <span class="metric-label">Macro F1</span
+            ><strong id="macro-f1">—</strong
+            ><span class="metric-note">Fixed nine tissue classes</span>
+          </article>
+          <article class="metric">
+            <span class="metric-label">High-confidence errors</span
+            ><strong id="high-confidence-errors">—</strong
+            ><span class="metric-note">Confidence ≥ 0.90</span>
+          </article>
+          <article class="metric">
+            <span class="metric-label">High-confidence error rate</span
+            ><strong id="high-confidence-rate">—</strong
+            ><span id="high-confidence-denominator" class="metric-note"></span>
+          </article>
+        </section>
+
+        <section
+          class="controls-grid"
+          aria-label="Exploratory threshold controls"
+        >
+          <article class="panel control-panel">
+            <div class="panel-heading">
+              <h2>Review confidence cutoff</h2>
+              <span class="tag">Exploratory</span>
+            </div>
+            <p>Flag patches below the cutoff; retain patches at or above it.</p>
+            <div class="threshold-control">
+              <label class="sr-only" for="review-range"
+                >Review confidence cutoff slider</label
+              >
+              <input
+                id="review-range"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="80"
+              />
+              <label class="sr-only" for="review-value"
+                >Review confidence cutoff</label
+              >
+              <input
+                id="review-value"
+                class="threshold-number"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.80"
+                inputmode="decimal"
+              />
+            </div>
+            <div class="control-metrics">
+              <div>
+                <span>Flagged for review</span
+                ><strong id="review-flagged">—</strong>
+              </div>
+              <div>
+                <span>Review proportion</span
+                ><strong id="review-proportion">—</strong>
+              </div>
+              <div>
+                <span>Retained coverage</span
+                ><strong id="review-coverage">—</strong>
+              </div>
+              <div>
+                <span>Retained accuracy</span
+                ><strong id="retained-accuracy">—</strong>
+              </div>
+            </div>
+            <p id="review-count-note" class="small-note"></p>
+          </article>
+          <article class="panel control-panel">
+            <div class="panel-heading">
+              <h2>Tumour probability threshold</h2>
+              <span class="tag">Exploratory</span>
+            </div>
+            <p>
+              Predict TUM when p_TUM ≥ threshold; compare with other tissue
+              classes.
+            </p>
+            <div class="threshold-control">
+              <label class="sr-only" for="tumour-range"
+                >Tumour probability threshold slider</label
+              >
+              <input
+                id="tumour-range"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="50"
+              />
+              <label class="sr-only" for="tumour-value"
+                >Tumour probability threshold</label
+              >
+              <input
+                id="tumour-value"
+                class="threshold-number"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.50"
+                inputmode="decimal"
+              />
+            </div>
+            <div class="control-metrics tumour-ratios">
+              <div>
+                <span>Sensitivity</span
+                ><strong id="tumour-sensitivity">—</strong>
+              </div>
+              <div>
+                <span>Specificity</span
+                ><strong id="tumour-specificity">—</strong>
+              </div>
+              <div>
+                <span>Precision</span><strong id="tumour-precision">—</strong>
+              </div>
+            </div>
+            <p id="tumour-count-note" class="small-note"></p>
+          </article>
+        </section>
+
+        <section class="analysis-grid" aria-label="Multiclass performance">
+          <article class="panel matrix-panel">
+            <div class="panel-heading">
+              <h2>Confusion matrix</h2>
+              <span class="tag fixed">Fixed benchmark</span>
+            </div>
+            <p>
+              True tissue in rows; predicted tissue in columns. Select an
+              off-diagonal count to inspect its errors.
+            </p>
+            <div
+              class="table-scroll"
+              tabindex="0"
+              role="region"
+              aria-label="Confusion matrix, scroll horizontally on small screens"
+            >
+              <table id="confusion-matrix" class="matrix">
+                <caption class="sr-only">
+                  Nine-class confusion matrix: image counts, including
+                  zero-count combinations
+                </caption>
+              </table>
+            </div>
+          </article>
+          <article class="panel recall-panel">
+            <div class="panel-heading">
+              <h2>Recall by tissue class</h2>
+              <span class="tag fixed">Fixed benchmark</span>
+            </div>
+            <p>
+              Percentage of each true class correctly identified. Select a class
+              to inspect its errors.
+            </p>
+            <div
+              id="recall-chart"
+              class="recall-chart"
+              aria-label="Per-class recall"
+            ></div>
+            <div class="recall-axis" aria-hidden="true">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </article>
+        </section>
+
+        <section
+          class="panel confidence-panel"
+          aria-labelledby="confidence-heading"
+        >
+          <div class="panel-heading">
+            <h2 id="confidence-heading">Confidence distribution</h2>
+            <span class="tag fixed">Fixed benchmark</span>
+          </div>
+          <div class="chart-description">
+            <p>
+              Maximum class probability, split by correctness. Select a bin to
+              inspect its errors.
+            </p>
+            <div class="legend">
+              <span><i class="correct-swatch"></i>Correct</span
+              ><span><i class="error-swatch"></i>Incorrect</span>
+            </div>
+          </div>
+          <div
+            id="confidence-chart"
+            class="confidence-chart"
+            aria-label="Confidence distribution by correctness"
+          ></div>
+          <p class="small-note">
+            Intervals include the lower bound and exclude the upper bound; the
+            final bin includes 1.00. Confidence scores are uncalibrated.
+          </p>
+        </section>
+
+        <section class="panel errors-panel" aria-labelledby="errors-heading">
+          <div class="panel-heading">
+            <h2 id="errors-heading">Misclassified patches</h2>
+            <button id="clear-errors" class="text-button" type="button">
+              Clear inspection filters
+            </button>
+          </div>
+          <p>
+            Highest-confidence mistakes first. Inspection filters affect this
+            table only.
+          </p>
+          <div class="error-tools">
+            <div class="search-control">
+              <label for="error-search">Find a patch or class</label
+              ><input
+                id="error-search"
+                type="search"
+                placeholder="Image ID or tissue code"
+                autocomplete="off"
+              />
+            </div>
+            <label class="checkbox-label"
+              ><input id="high-errors-only" type="checkbox" /> Confidence ≥ 0.90
+              only</label
+            >
+            <button id="download-errors" class="secondary" type="button">
+              Download these errors
+            </button>
+          </div>
+          <p
+            id="error-scope"
+            class="small-note"
+            role="status"
+            aria-live="polite"
+          ></p>
+          <div
+            class="table-scroll"
+            tabindex="0"
+            role="region"
+            aria-label="Misclassified patch table"
+          >
+            <table class="error-table">
+              <caption class="sr-only">
+                Individual incorrectly classified patches
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Image ID</th>
+                  <th scope="col">True class</th>
+                  <th scope="col">Predicted class</th>
+                  <th
+                    scope="col"
+                    id="confidence-sort-header"
+                    aria-sort="descending"
+                  >
+                    <button id="sort-confidence" type="button">
+                      Confidence
+                      <span id="sort-arrow" aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th scope="col">p_TUM</th>
+                </tr>
+              </thead>
+              <tbody id="error-rows"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="error-page-status"></span>
+            <div>
+              <button id="previous-page" class="secondary" type="button">
+                Previous</button
+              ><button id="next-page" class="secondary" type="button">
+                Next
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <details class="panel provenance">
+          <summary>Methods, benchmark checks and source data</summary>
+          <div class="provenance-body">
+            <p id="run-summary"></p>
+            <p>
+              <strong>Evaluation integrity.</strong> The scaler and logistic
+              regression were fitted on training embeddings only. The
+              independent evaluation set was not used for model or threshold
+              selection. Original multiclass predictions use argmax across nine
+              probabilities; the separate tumour decision uses p_TUM. This
+              explains why TUM recall in the chart can differ from the
+              thresholded sensitivity.
+            </p>
+            <p>
+              <strong>Fixed benchmarks.</strong> Review cutoff 0.80, tumour
+              threshold 0.50, high confidence 0.90. Changes to the controls are
+              exploratory and do not establish an optimal clinical operating
+              point. The metric checks below always use the frozen defaults.
+            </p>
+            <p id="benchmark-status"></p>
+            <div class="table-scroll">
+              <table class="benchmark-table">
+                <caption class="sr-only">
+                  Browser calculations compared with saved Python benchmarks
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Metric</th>
+                    <th scope="col">Class</th>
+                    <th scope="col">Browser</th>
+                    <th scope="col">Saved Python</th>
+                    <th scope="col">Check</th>
+                  </tr>
+                </thead>
+                <tbody id="benchmark-rows"></tbody>
+              </table>
+            </div>
+            <p>
+              <strong>Limitations.</strong> Results describe image patches, not
+              patient diagnoses. Patches within a patient are correlated. Other
+              tissue classes include background and are not all benign.
+              Undefined ratios display an em dash. Probabilities shown as
+              1.000000 can be rounded or numerically saturated; confidence is
+              not proof of correctness.
+            </p>
+            <p class="data-links">
+              <a href="./data/predictions.csv" download>Predictions CSV</a
+              ><a href="./data/model_metrics.csv" download>Fixed metrics CSV</a
+              ><a href="./data/run_metadata.json" download>Run metadata</a
+              ><a
+                id="notebook-link"
+                href="https://colab.research.google.com/github/aralcimcim/german-pathology-ai/blob/main/notebooks/01_model_evaluation.ipynb"
+                target="_blank"
+                rel="noopener"
+                >Open notebook in Colab ↗</a
+              >
+            </p>
+            <p id="run-hash" class="small-note run-hash"></p>
+          </div>
+        </details>
+      </div>
+      <footer class="page-footer">
+        <p>
+          <strong>Source:</strong> Kather, Halama &amp; Marx (2018),
+          <a
+            href="https://doi.org/10.5281/zenodo.1214456"
+            target="_blank"
+            rel="noopener"
+            >100,000 histological images of human colorectal cancer and healthy
+            tissue</a
+          >, Zenodo. Tissue sourced from Heidelberg and Mannheim, Germany.
+          <a
+            href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"
+            rel="noopener"
+            >CC BY 4.0</a
+          >.
+        </p>
+        <p>
+          Derived predictions from a frozen ImageNet encoder and logistic
+          regression. Educational research demonstration · No clinical
+          validation.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

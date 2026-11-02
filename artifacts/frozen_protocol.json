@@ -1,0 +1,89 @@
+{
+  "frozen_at_utc": "2026-11-02T13:44:32.591403+00:00",
+  "protocol_sha256": "61c17b145ced00bb6b55e06c2249874a1283b9815295f1d216881eb4dde440d6",
+  "protocol": {
+    "seed": 42,
+    "train_per_class": 1000,
+    "class_codes": [
+      "ADI",
+      "BACK",
+      "DEB",
+      "LYM",
+      "MUC",
+      "MUS",
+      "NORM",
+      "STR",
+      "TUM"
+    ],
+    "model_name": "resnet18_imagenet1k_v1_logreg_c1",
+    "encoder_weights": "ResNet18_Weights.IMAGENET1K_V1",
+    "weights_url": "https://download.pytorch.org/models/resnet18-f37072fd.pth",
+    "preprocessing": "ImageClassification(\n    crop_size=[224]\n    resize_size=[256]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BILINEAR\n)",
+    "embedding_dim": 512,
+    "inference_dtype": "float32",
+    "batch_size": 32,
+    "device": "cuda",
+    "gpu": "NVIDIA L4",
+    "num_workers": 2,
+    "classifier": {
+      "C": 1.0,
+      "solver": "lbfgs",
+      "max_iter": 2000
+    },
+    "scaler": "StandardScaler fitted on training embeddings only",
+    "review_cutoff": 0.8,
+    "tumour_threshold": 0.5,
+    "high_confidence": 0.9,
+    "sources": {
+      "train": {
+        "archive": "NCT-CRC-HE-100K.zip",
+        "url": "https://zenodo.org/api/records/1214456/files/NCT-CRC-HE-100K.zip/content",
+        "bytes": 11690284003,
+        "md5": "6fd702d11df6292bc054397ae038a464",
+        "counts": {
+          "ADI": 10407,
+          "BACK": 10566,
+          "DEB": 11512,
+          "LYM": 11557,
+          "MUC": 8896,
+          "MUS": 13536,
+          "NORM": 8763,
+          "STR": 10446,
+          "TUM": 14317
+        }
+      },
+      "evaluation": {
+        "archive": "CRC-VAL-HE-7K.zip",
+        "url": "https://zenodo.org/api/records/1214456/files/CRC-VAL-HE-7K.zip/content",
+        "bytes": 800276929,
+        "md5": "2fd1651b4f94ebd818ebf90ad2b6ce06",
+        "counts": {
+          "ADI": 1338,
+          "BACK": 847,
+          "DEB": 339,
+          "LYM": 634,
+          "MUC": 1035,
+          "MUS": 592,
+          "NORM": 741,
+          "STR": 421,
+          "TUM": 1233
+        }
+      }
+    },
+    "versions": {
+      "torch": "2.11.0+cu130",
+      "torchvision": "0.26.0+cu130",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.7.2",
+      "Pillow": "11.3.0",
+      "requests": "2.32.4",
+      "tqdm": "4.67.3",
+      "matplotlib": "3.10.0",
+      "joblib": "1.6.0",
+      "threadpoolctl": "3.7.0",
+      "python": "3.13.16"
+    },
+    "evaluation_policy": "Fixed baseline; complete CRC-VAL-HE-7K held out; no model or threshold selection"
+  }
+}

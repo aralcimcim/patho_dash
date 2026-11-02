@@ -1,0 +1,34 @@
+{
+  "train": {
+    "counts": {
+      "ADI": 10407,
+      "BACK": 10566,
+      "DEB": 11512,
+      "LYM": 11557,
+      "MUC": 8896,
+      "MUS": 13536,
+      "NORM": 8763,
+      "STR": 10446,
+      "TUM": 14317
+    },
+    "non_image_files": [],
+    "grouping_available": false,
+    "grouping_note": "No documented patient/slide mapping in archive or record"
+  },
+  "evaluation": {
+    "counts": {
+      "ADI": 1338,
+      "BACK": 847,
+      "DEB": 339,
+      "LYM": 634,
+      "MUC": 1035,
+      "MUS": 592,
+      "NORM": 741,
+      "STR": 421,
+      "TUM": 1233
+    },
+    "non_image_files": [],
+    "grouping_available": false,
+    "grouping_note": "No documented patient/slide mapping in archive or record"
+  }
+}

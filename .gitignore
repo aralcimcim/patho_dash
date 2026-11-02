@@ -1,0 +1,15 @@
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+archives/
+images/
+embedding_cache/
+*.part
+*.npz
+*.pth
+*.zip
+data/runs/
+node_modules/
+test-results/
+playwright-report/
+.DS_Store

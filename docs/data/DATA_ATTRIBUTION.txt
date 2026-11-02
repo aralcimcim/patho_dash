@@ -1,0 +1,4 @@
+Kather, Jakob Nikolas; Halama, Niels; Marx, Alexander (2018). 100,000 histological images of human colorectal cancer and healthy tissue (v0.1). Zenodo. https://doi.org/10.5281/zenodo.1214456
+Dataset: CC BY 4.0.
+Derived outputs: embeddings classified with frozen ImageNet ResNet18 and training-only logistic regression.
+No original images are included. Outputs are patch-level research predictions, not patient diagnoses.
