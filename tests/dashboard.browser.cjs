@@ -35,12 +35,9 @@ test("saved benchmarks, complete matrix and charts load without browser errors",
   await expect(page.locator(".confidence-bin")).toHaveCount(10);
   await expect(page.locator("#error-scope")).toContainText("978 of 978 errors");
   await expect(page.locator("#error-rows tr")).toHaveCount(20);
-  await page.locator(".provenance summary").click();
-  await expect(page.locator("#benchmark-status")).toContainText("54 of 54");
-  await expect(page.locator("#benchmark-rows tr")).toHaveCount(54);
-  await expect(page.locator("#benchmark-rows tr td:last-child")).toHaveText(
-    Array(54).fill("Pass"),
-  );
+  await expect(page.locator("h1")).toHaveText("Dashboard");
+  await expect(page.locator(".provenance")).toHaveCount(0);
+  await expect(page.locator("img")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -175,12 +172,6 @@ for (const width of [375, 768, 1440]) {
       await expect(page.locator("#review-flagged")).toHaveText("3");
       await page.locator("#reset-defaults").click();
     }
-    await page.screenshot({
-      path: `/tmp/pathology-dashboard-${width}.png`,
-      fullPage: true,
-    });
-    if (width === 1440)
-      await page.screenshot({ path: "/tmp/pathology-dashboard-preview.png" });
   });
 }
 

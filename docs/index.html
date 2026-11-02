@@ -8,11 +8,8 @@
       content="Interactive evaluation of a frozen ResNet-18 tissue classifier on 7,180 held-out colorectal histology image patches. Explore errors, confidence, review coverage and tumour thresholds."
     />
     <meta name="theme-color" content="#174ea6" />
-    <title>German Pathology AI — Model Evaluation | Aral Cimcim</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%23174ea6'/%3E%3Cpath d='M7 23V14h4v9zm7 0V7h4v16zm7 0V11h4v12z' fill='white'/%3E%3C/svg%3E"
-    />
+    <title>Dashboard | Aral Cimcim</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./style.css" />
     <script type="module" src="./app.mjs"></script>
   </head>
@@ -22,7 +19,7 @@
       <a class="brand" href="https://aralcimcim.github.io/">Aral Cimcim</a>
       <nav aria-label="Project navigation">
         <a href="https://aralcimcim.github.io/industry/">Software</a>
-        <a href="https://github.com/aralcimcim/german-pathology-ai"
+        <a href="https://github.com/aralcimcim/patho_dash"
           >Source code <span aria-hidden="true">↗</span></a
         >
       </nav>
@@ -31,7 +28,7 @@
       <header class="page-header">
         <div>
           <p class="eyebrow">COMPUTATIONAL PATHOLOGY · MODEL EVALUATION</p>
-          <h1>German Pathology AI</h1>
+          <h1>Dashboard</h1>
           <p class="subtitle">
             Frozen ResNet-18 + logistic regression · Independent CRC-VAL-HE-7K
             evaluation
@@ -47,11 +44,8 @@
       <noscript
         ><p class="notice">
           Enable JavaScript to use this dashboard. The
-          <a href="./data/model_metrics.csv">saved metric results</a> and
-          <a href="https://github.com/aralcimcim/german-pathology-ai"
-            >reproduction notebook</a
-          >
-          are available without it.
+          <a href="./data/model_metrics.csv">saved metric results</a> are
+          available without it.
         </p></noscript
       >
       <div id="dashboard" hidden>
@@ -341,67 +335,6 @@
             </div>
           </div>
         </section>
-
-        <details class="panel provenance">
-          <summary>Methods, benchmark checks and source data</summary>
-          <div class="provenance-body">
-            <p id="run-summary"></p>
-            <p>
-              <strong>Evaluation integrity.</strong> The scaler and logistic
-              regression were fitted on training embeddings only. The
-              independent evaluation set was not used for model or threshold
-              selection. Original multiclass predictions use argmax across nine
-              probabilities; the separate tumour decision uses p_TUM. This
-              explains why TUM recall in the chart can differ from the
-              thresholded sensitivity.
-            </p>
-            <p>
-              <strong>Fixed benchmarks.</strong> Review cutoff 0.80, tumour
-              threshold 0.50, high confidence 0.90. Changes to the controls are
-              exploratory and do not establish an optimal clinical operating
-              point. The metric checks below always use the frozen defaults.
-            </p>
-            <p id="benchmark-status"></p>
-            <div class="table-scroll">
-              <table class="benchmark-table">
-                <caption class="sr-only">
-                  Browser calculations compared with saved Python benchmarks
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Metric</th>
-                    <th scope="col">Class</th>
-                    <th scope="col">Browser</th>
-                    <th scope="col">Saved Python</th>
-                    <th scope="col">Check</th>
-                  </tr>
-                </thead>
-                <tbody id="benchmark-rows"></tbody>
-              </table>
-            </div>
-            <p>
-              <strong>Limitations.</strong> Results describe image patches, not
-              patient diagnoses. Patches within a patient are correlated. Other
-              tissue classes include background and are not all benign.
-              Undefined ratios display an em dash. Probabilities shown as
-              1.000000 can be rounded or numerically saturated; confidence is
-              not proof of correctness.
-            </p>
-            <p class="data-links">
-              <a href="./data/predictions.csv" download>Predictions CSV</a
-              ><a href="./data/model_metrics.csv" download>Fixed metrics CSV</a
-              ><a href="./data/run_metadata.json" download>Run metadata</a
-              ><a
-                id="notebook-link"
-                href="https://colab.research.google.com/github/aralcimcim/german-pathology-ai/blob/main/notebooks/01_model_evaluation.ipynb"
-                target="_blank"
-                rel="noopener"
-                >Open notebook in Colab ↗</a
-              >
-            </p>
-            <p id="run-hash" class="small-note run-hash"></p>
-          </div>
-        </details>
       </div>
       <footer class="page-footer">
         <p>

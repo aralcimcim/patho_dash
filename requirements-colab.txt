@@ -1,7 +1,0 @@
-# Run the notebook in Google Colab with its preinstalled GPU-compatible pair:
-# torch + torchvision. Do not replace only one member of that pair.
-# Colab already supplies numpy, pandas, Pillow, matplotlib and joblib.
-# Every actual version, including Python/torch/torchvision, is exported per run.
-scikit-learn==1.7.2
-requests>=2.31,<3
-tqdm>=4.66,<5

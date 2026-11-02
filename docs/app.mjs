@@ -361,37 +361,6 @@ function renderErrors() {
   setText("sort-arrow", state.descending ? "↓" : "↑");
 }
 
-function renderProvenance(checks) {
-  const m = state.metadata;
-  setText(
-    "run-summary",
-    `Training: ${count(m.train_images)} normalized NCT-CRC-HE-100K patches (${m.protocol.train_per_class.toLocaleString("en-GB")} per class), seed ${m.protocol.seed}. Frozen ImageNet ResNet-18 embeddings, training-only StandardScaler and logistic regression (C=1). Evaluated ${new Date(m.completed_at_utc).toISOString().slice(0, 10)}. Classifier convergence recorded: ${m.classifier_converged ? "yes" : "no"}.`,
-  );
-  setText("run-hash", `Protocol SHA256: ${m.protocol_sha256}`);
-  setText(
-    "benchmark-status",
-    `${checks.length} of ${checks.length} fixed benchmark checks agree with the saved Python results (absolute tolerance 1e-9).`,
-  );
-  for (const check of checks) {
-    const row = element("tr");
-    const format = (value) =>
-      value === null
-        ? "—"
-        : Number.isInteger(value)
-          ? count(value)
-          : value.toFixed(10);
-    for (const value of [
-      check.name,
-      check.classCode,
-      format(check.actual),
-      format(check.expected),
-      "Pass",
-    ])
-      row.append(element("td", "", value));
-    $("benchmark-rows").append(row);
-  }
-}
-
 function clearErrorFilters() {
   state.trueClass = "";
   state.predictedClass = "";
@@ -538,7 +507,6 @@ async function start() {
   renderRecall();
   renderConfidence();
   renderErrors();
-  renderProvenance(checks);
   bindControls();
   $("dashboard").hidden = false;
   setText(
@@ -552,7 +520,7 @@ start().catch((error) => {
   console.error(error);
   setText(
     "load-status",
-    `The evaluation could not be loaded: ${error.message} Reload the page or use the source files linked below.`,
+    `The evaluation could not be loaded: ${error.message} Reload the page or check the data files in the repository.`,
   );
   $("load-status").classList.add("failed");
 });

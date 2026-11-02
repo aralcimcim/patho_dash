@@ -1,5 +1,5 @@
 {
-  "name": "german-pathology-ai-dashboard",
+  "name": "patho_dash",
   "version": "1.0.0",
   "private": true,
   "type": "module",

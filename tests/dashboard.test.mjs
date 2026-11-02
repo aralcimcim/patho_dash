@@ -26,7 +26,7 @@ const close = (actual, expected, tolerance = 1e-9) =>
     `${actual} != ${expected}`,
   );
 
-test("actual prediction export matches the immutable Colab checksum and sample counts", () => {
+test("actual prediction export matches the saved checksum and sample counts", () => {
   assert.equal(
     createHash("sha256").update(read("predictions.csv")).digest("hex"),
     metadata.predictions_sha256,
