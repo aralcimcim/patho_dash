@@ -7,7 +7,7 @@
       name="description"
       content="Interactive evaluation of a frozen ResNet-18 tissue classifier on 7,180 held-out colorectal histology image patches. Explore errors, confidence, review coverage and tumour thresholds."
     />
-    <meta name="theme-color" content="#174ea6" />
+    <meta name="theme-color" content="#191820" />
     <title>Dashboard | Aral Cimcim</title>
     <link
       rel="icon"
@@ -47,6 +47,25 @@
         </p></noscript
       >
       <div id="dashboard" hidden>
+        <section
+          class="panel model-panel"
+          id="model-selection"
+          aria-labelledby="model-heading"
+        >
+          <div>
+            <h2 id="model-heading">Model selection</h2>
+            <p id="model-note">Additional models will be added here.</p>
+          </div>
+          <div class="model-picker">
+            <label for="model-select">Current model</label>
+            <select id="model-select" aria-describedby="model-note" disabled>
+              <option value="resnet18_imagenet1k_v1_logreg_c1">
+                ResNet-18 + logistic regression
+              </option>
+            </select>
+          </div>
+        </section>
+
         <section class="metrics-grid" aria-label="Fixed multiclass benchmarks">
           <article class="metric">
             <span class="metric-label">Evaluated patches</span

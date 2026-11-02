@@ -36,6 +36,47 @@ test("saved benchmarks, complete matrix and charts load without browser errors",
   await expect(page.locator("#error-scope")).toContainText("978 of 978 errors");
   await expect(page.locator("#error-rows tr")).toHaveCount(20);
   await expect(page.locator("h1")).toHaveText("Dashboard");
+  await expect(
+    page.getByRole("heading", { name: "Model selection", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Current model", { exact: true }),
+  ).toBeDisabled();
+  await expect(page.locator("#model-select option")).toHaveText(
+    "ResNet-18 + logistic regression",
+  );
+  expect(
+    await page
+      .locator("html")
+      .evaluate((el) => getComputedStyle(el).colorScheme),
+  ).toBe("dark");
+  const lowContrast = await page
+    .locator(".matrix-count")
+    .evaluateAll((cells) => {
+      const rgb = (value) =>
+        value
+          .match(/[\d.]+/g)
+          .slice(0, 3)
+          .map(Number);
+      const luminance = (values) =>
+        values
+          .map((value) => value / 255)
+          .map((value) =>
+            value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
+          )
+          .reduce(
+            (sum, value, index) =>
+              sum + value * [0.2126, 0.7152, 0.0722][index],
+            0,
+          );
+      return cells.filter((cell) => {
+        const style = getComputedStyle(cell);
+        const a = luminance(rgb(style.color));
+        const b = luminance(rgb(style.backgroundColor));
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) < 4.5;
+      }).length;
+    });
+  expect(lowContrast).toBe(0);
   await expect(page.locator(".provenance")).toHaveCount(0);
   await expect(page.locator("img")).toHaveCount(0);
   expect(errors).toEqual([]);

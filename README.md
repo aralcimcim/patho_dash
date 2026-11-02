@@ -26,6 +26,10 @@ The weakest class recalls are stroma (**46.32%**) and smooth muscle (**70.27%**)
 
 The dashboard verifies the predictions' SHA-256 against [run metadata](docs/data/run_metadata.json), checks the CSV schema and probability consistency, and compares **all 54 fixed metrics** with the saved Python [benchmarks](docs/data/model_metrics.csv) before displaying results. Tests also compare every one of the 81 confusion-matrix cells with the saved matrix.
 
+## Model selection
+
+The dashboard includes a Model selection section showing the current ResNet-18 + logistic regression baseline. The selector stays disabled until additional models are added. The interface uses the portfolio's dark background, neon green accent and system typography.
+
 ## Interactions
 
 - **Review confidence cutoff:** flags predictions with maximum class probability strictly below the cutoff. Retained coverage and accuracy use predictions at or above it.

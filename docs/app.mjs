@@ -132,6 +132,16 @@ function renderMatrix() {
   head.append(heading);
   const body = element("tbody");
   const maximum = Math.max(...matrix.flat());
+  const palette = getComputedStyle(document.documentElement);
+  const rgbToken = (name) =>
+    palette
+      .getPropertyValue(name)
+      .trim()
+      .slice(1)
+      .match(/.{2}/g)
+      .map((value) => parseInt(value, 16));
+  const accent = rgbToken("--accent");
+  const surface = rgbToken("--surface");
   for (let i = 0; i < CLASSES.length; i++) {
     const tr = element("tr");
     const label = element("th", "", CLASSES[i]);
@@ -151,10 +161,22 @@ function renderMatrix() {
       );
       button.title = `${CLASSES[i]} → ${CLASSES[j]}: ${count(n)} patches`;
       const strength = maximum ? n / maximum : 0;
-      button.style.backgroundColor = n
-        ? `rgba(23, 78, 166, ${(0.06 + 0.84 * strength).toFixed(3)})`
-        : "#fff";
-      button.style.color = strength > 0.85 ? "#fff" : "#000";
+      const opacity = n ? 0.08 + 0.8 * strength : 0;
+      const rgb = surface.map((base, index) =>
+        Math.round(base + (accent[index] - base) * opacity),
+      );
+      button.style.backgroundColor = `rgb(${rgb.join(", ")})`;
+      // Choose a readable label for each shade of the shared green palette.
+      const luminance = rgb
+        .map((value) => value / 255)
+        .map((value) =>
+          value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
+        )
+        .reduce(
+          (sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index],
+          0,
+        );
+      button.style.color = luminance > 0.179 ? "#091007" : "#fff";
       if (i === j || n === 0) button.disabled = true;
       else {
         button.setAttribute("aria-pressed", "false");
