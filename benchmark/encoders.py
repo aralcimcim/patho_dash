@@ -86,7 +86,7 @@ def load_encoder(name, revision=None):
                 from transformers import AutoImageProcessor, AutoModel
 
                 processor = AutoImageProcessor.from_pretrained(
-                    spec["checkpoint"], revision=resolved, use_fast=False
+                    spec["checkpoint"], revision=resolved, backend="pil"
                 )
                 transform = ProcessorTransform(processor)
                 spec["processor"] = processor.to_dict()

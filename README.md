@@ -8,13 +8,13 @@ Only the historical ResNet-18 C=1 evaluation is currently available: **86.38% ac
 
 ## Run in Colab
 
-Open [`notebooks/01_model_evaluation.ipynb`](notebooks/01_model_evaluation.ipynb), choose **T4 GPU**, and run its six short sections. Keep Colab's paired CUDA torch/torchvision installation. The requirements file pins the model-loading libraries and classifier; the run records all resolved versions. If pip requests a runtime restart, restart before continuing.
+Open [`notebooks/01_model_evaluation.ipynb`](notebooks/01_model_evaluation.ipynb), choose **T4 GPU**, and run its six short sections. Keep Colab's paired CUDA torch/torchvision installation. Transformers 5 and Hub ≥1.32 share the Hub version range required by current Colab Gradio/Diffusers packages. The requirements file pins the model-loading libraries and classifier; the run records all resolved versions. If pip requests a runtime restart, restart before continuing.
 
 The notebook downloads ~12.5 GB of verified archives and selectively extracts 16,180 images. Allow ~25 GB free. Drive persists embeddings and completed runs; images/archives stay in temporary Colab storage. Repeated runs reuse compatible caches and immutable completed exports. No images or checkpoints belong in Git.
 
 Start with `MODELS = ["resnet18", "phikon-v2"]`, then add `"uni2-h"`. UNI2-h needs Hugging Face approval; set the Colab secret `HF_TOKEN` and allow notebook access to that secret. Tokens are read from the environment, never written to exports. Missing access skips only that model and records its unavailable status. No random-weight fallback exists. If inference runs out of GPU memory, lower that model's batch size (try 1); an FP16 non-finite feature error requires an explicit FP32 rerun. T4 uses FP16, not BF16. Availability on a particular Colab GPU is not guaranteed.
 
-Equivalent local commands (Python 3.10+, install a matching torch/torchvision pair for your hardware first):
+Equivalent local commands (Python 3.11+, install a matching torch/torchvision pair for your hardware first):
 
 ```bash
 python -m pip install -r requirements-colab.txt
