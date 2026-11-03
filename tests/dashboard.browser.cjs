@@ -42,8 +42,8 @@ test("saved benchmarks, complete matrix and charts load without browser errors",
   await expect(
     page.getByLabel("Current model", { exact: true }),
   ).toBeDisabled();
-  await expect(page.locator("#model-select option")).toHaveText(
-    "ResNet-18 + logistic regression",
+  await expect(page.locator("#model-select option:checked")).toHaveText(
+    "ResNet-18 (historical C=1)",
   );
   expect(
     await page
@@ -202,6 +202,13 @@ for (const width of [375, 768, 1440]) {
       viewport: innerWidth,
     }));
     expect(sizes.content).toBeLessThanOrEqual(sizes.viewport);
+    await page.getByText("Encoder benchmark", { exact: true }).click();
+    await page
+      .getByText("Coverage and probability metrics", { exact: true })
+      .click();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
     if (width === 375) {
       const scroll = page.getByRole("region", {
         name: "Confusion matrix, scroll horizontally on small screens",
@@ -238,4 +245,57 @@ test("missing files and altered predictions show a clear error instead of unveri
   await page.goto("./");
   await expect(page.locator("#load-status")).toContainText("checksum differs");
   await expect(page.locator("#dashboard")).toBeHidden();
+});
+
+test("completed models switch charts, compare aligned cases and sort the leaderboard", async ({
+  page,
+}) => {
+  const { fixtures } = await import("./benchmark-fixtures.mjs");
+  const { files, registry } = fixtures();
+  await page.route("**/data/models.json", (route) =>
+    route.fulfill({ json: registry }),
+  );
+  await page.route("**/data/runs/**", (route) => {
+    const key = new URL(route.request().url()).pathname.split("/data/")[1];
+    const body = files.get(key);
+    return route.fulfill({
+      status: body ? 200 : 404,
+      body: body || "Missing test fixture",
+    });
+  });
+  await open(page);
+  await expect(page.locator("#model-select")).toBeEnabled();
+  await page.locator("#error-search").fill("no-such-patch");
+  await page.locator("#model-select").selectOption("test-encoder-1");
+  await expect(page.locator("#error-search")).toHaveValue("");
+  await expect(page.locator("#error-scope")).toContainText("977 of 977 errors");
+  await expect(page.locator("#overall-accuracy")).toHaveText("86.39%");
+  await expect(page.locator(".matrix-count")).toHaveCount(81);
+  await expect(page.locator(".recall-row")).toHaveCount(9);
+  await expect(page.locator(".confidence-bin")).toHaveCount(10);
+  await page.locator("#matrix-mode").selectOption("normalized");
+  await expect(page.locator(".matrix-count").first()).toHaveText(/%/);
+  await page.getByText("Encoder benchmark", { exact: true }).click();
+  await expect(page.locator("#comparison-counts")).toHaveText(
+    "Corrected 2 · New errors 1 · Both wrong 976 · Disagreements 3",
+  );
+  await expect(page.locator("#comparison-recall tr")).toHaveCount(9);
+  await expect(page.locator("#comparison-cases tr")).toHaveCount(2);
+  await page.locator("#comparison-category").selectOption("regression");
+  await expect(page.locator("#comparison-cases tr")).toHaveCount(1);
+  const downloadEvent = page.waitForEvent("download");
+  await page.locator("#download-comparison").click();
+  const csv = await fs.readFile(await (await downloadEvent).path(), "utf8");
+  expect(csv.trim().split(/\r?\n/)).toHaveLength(2);
+  await page.locator('[data-sort="accuracy"]').click();
+  await expect(page.locator("#leaderboard-rows tr").first()).toContainText(
+    "Test encoder B",
+  );
+  await page.locator('[data-sort="accuracy"]').click();
+  await expect(page.locator("#leaderboard-rows tr").first()).toContainText(
+    "Test encoder A",
+  );
+  await page.reload();
+  await expect(page.locator("#model-select")).toHaveValue("test-encoder-1");
+  await expect(page.locator("#overall-accuracy")).toHaveText("86.39%");
 });

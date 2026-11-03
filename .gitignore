@@ -4,3 +4,18 @@ playwright-report/
 __pycache__/
 .pytest_cache/
 .DS_Store
+
+# Local experiments; publish only validated, curated dashboard exports.
+/cache/
+/runs/
+/work/
+/archives/
+/images/
+*.joblib
+*.npz
+*.safetensors
+*.pth
+*.bin
+*.zip
+.env
+.ipynb_checkpoints/

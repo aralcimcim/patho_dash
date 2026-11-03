@@ -65,11 +65,13 @@ export function preparePredictions(records, metadata) {
     !Array.isArray(order) ||
     order.length !== 9 ||
     new Set(order).size !== 9 ||
-    order.some((c) => !CLASSES.includes(c))
+    order.some((c, i) => c !== CLASSES[i])
   ) {
     throw new Error("The classifier class mapping is invalid.");
   }
   const rows = records.map((record, index) => {
+    if (metadata.schema_version === 1 && record.run_id !== metadata.run_id)
+      throw new Error("Prediction run ID differs from metadata.");
     if (!record.image_id || ids.has(record.image_id))
       throw new Error(`Missing or duplicate image ID at row ${index + 1}.`);
     ids.add(record.image_id);

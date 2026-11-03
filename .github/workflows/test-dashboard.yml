@@ -17,3 +17,10 @@ jobs:
           node-version: "20"
       - name: Verify real exported metrics and edge cases
         run: npm test
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install CPU protocol-check dependencies
+        run: pip install "numpy>=1.26,<3" "pandas>=2.2,<3" scikit-learn==1.7.2 Pillow joblib tqdm nbformat
+      - name: Check splits, classifier protocol, exports and notebook
+        run: python -m unittest discover -s tests -p 'test_*.py' -v

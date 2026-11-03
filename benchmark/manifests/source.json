@@ -1,0 +1,45 @@
+{
+  "historical_protocol_sha256": "61c17b145ced00bb6b55e06c2249874a1283b9815295f1d216881eb4dde440d6",
+  "seed": 42,
+  "sources": {
+    "train": {
+      "archive": "NCT-CRC-HE-100K.zip",
+      "url": "https://zenodo.org/api/records/1214456/files/NCT-CRC-HE-100K.zip/content",
+      "bytes": 11690284003,
+      "md5": "6fd702d11df6292bc054397ae038a464",
+      "counts": {
+        "ADI": 10407,
+        "BACK": 10566,
+        "DEB": 11512,
+        "LYM": 11557,
+        "MUC": 8896,
+        "MUS": 13536,
+        "NORM": 8763,
+        "STR": 10446,
+        "TUM": 14317
+      }
+    },
+    "evaluation": {
+      "archive": "CRC-VAL-HE-7K.zip",
+      "url": "https://zenodo.org/api/records/1214456/files/CRC-VAL-HE-7K.zip/content",
+      "bytes": 800276929,
+      "md5": "2fd1651b4f94ebd818ebf90ad2b6ce06",
+      "counts": {
+        "ADI": 1338,
+        "BACK": 847,
+        "DEB": 339,
+        "LYM": 634,
+        "MUC": 1035,
+        "MUS": 592,
+        "NORM": 741,
+        "STR": 421,
+        "TUM": 1233
+      }
+    }
+  },
+  "grouping_available": false,
+  "training_variant": "NCT-CRC-HE-100K: Macenko color-normalized, per Zenodo record",
+  "test_variant": "CRC-VAL-HE-7K: original archive; record gives 0.5 MPP but does not explicitly state its stain normalization",
+  "resolution": "224 x 224 pixels at 0.5 microns/pixel, per source record",
+  "source_url": "https://zenodo.org/records/1214456"
+}

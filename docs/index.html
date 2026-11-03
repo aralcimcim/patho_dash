@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Interactive evaluation of a frozen ResNet-18 tissue classifier on 7,180 held-out colorectal histology image patches. Explore errors, confidence, review coverage and tumour thresholds."
+      content="Interactive benchmark of frozen tissue encoders on 7,180 held-out colorectal histology image patches. Explore errors, confidence, review coverage and tumour thresholds."
     />
     <meta name="theme-color" content="#191820" />
     <title>Dashboard | Aral Cimcim</title>
@@ -28,8 +28,8 @@
           <p class="eyebrow">COMPUTATIONAL PATHOLOGY · MODEL EVALUATION</p>
           <h1>Dashboard</h1>
           <p class="subtitle">
-            Frozen ResNet-18 + logistic regression · Independent CRC-VAL-HE-7K
-            evaluation
+            Frozen image encoders + logistic regression · Independent
+            CRC-VAL-HE-7K evaluation
           </p>
         </div>
         <button id="reset-defaults" class="secondary" type="button" disabled>
@@ -54,7 +54,10 @@
         >
           <div>
             <h2 id="model-heading">Model selection</h2>
-            <p id="model-note">Additional models will be added here.</p>
+            <p id="model-note">
+              Select a completed run. New encoders appear after their Colab
+              exports are published.
+            </p>
           </div>
           <div class="model-picker">
             <label for="model-select">Current model</label>
@@ -65,6 +68,95 @@
             </select>
           </div>
         </section>
+
+        <details class="panel benchmark-panel">
+          <summary>Encoder benchmark</summary>
+          <p>
+            Frozen representations + logistic regression on this colorectal
+            tissue dataset. Historical C=1 results use a different protocol; new
+            runs select C on development validation.
+          </p>
+          <div class="table-scroll">
+            <table id="leaderboard">
+              <caption>
+                Results · tumour metrics at 0.50 · select a column to sort
+              </caption>
+              <thead>
+                <tr>
+                  <th><button data-sort="label">Model</button></th>
+                  <th><button data-sort="macro_f1">Macro F1 ↓</button></th>
+                  <th><button data-sort="accuracy">Accuracy</button></th>
+                  <th>
+                    <button data-sort="sensitivity">Tumour sensitivity</button>
+                  </th>
+                  <th>
+                    <button data-sort="specificity">Tumour specificity</button>
+                  </th>
+                  <th><button data-sort="seconds">Extraction (s)</button></th>
+                  <th><button data-sort="memory">Peak GPU (GiB)</button></th>
+                  <th>Version / status</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-rows"></tbody>
+            </table>
+          </div>
+          <p class="small-note">
+            Extraction includes image loading and preprocessing; excludes
+            checkpoint loading. Hardware and precision vary: inspect the run
+            metadata before comparing speed.
+          </p>
+          <div class="comparison-controls">
+            <label>First model<select id="compare-first"></select></label>
+            <label>Second model<select id="compare-second"></select></label>
+          </div>
+          <p id="comparison-status" role="status"></p>
+          <div id="comparison-results" hidden>
+            <div class="table-scroll">
+              <table>
+                <caption>
+                  Recall difference: second − first (percentage points)
+                </caption>
+                <thead>
+                  <tr>
+                    <th>Class</th>
+                    <th>First</th>
+                    <th>Second</th>
+                    <th>Difference</th>
+                  </tr>
+                </thead>
+                <tbody id="comparison-recall"></tbody>
+              </table>
+            </div>
+            <label
+              >Inspect cases<select id="comparison-category">
+                <option value="corrected">Errors corrected</option>
+                <option value="regression">New errors</option>
+                <option value="both_wrong">Both wrong</option>
+                <option value="disagreement">Prediction disagreements</option>
+              </select></label
+            >
+            <p id="comparison-counts" class="small-note"></p>
+            <button id="download-comparison" class="secondary" type="button">
+              Download comparison cases
+            </button>
+            <div class="table-scroll">
+              <table>
+                <caption>
+                  First 20 matching cases; download includes all matches
+                </caption>
+                <thead>
+                  <tr>
+                    <th>Image ID</th>
+                    <th>True</th>
+                    <th>First prediction</th>
+                    <th>Second prediction</th>
+                  </tr>
+                </thead>
+                <tbody id="comparison-cases"></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
 
         <section class="metrics-grid" aria-label="Fixed multiclass benchmarks">
           <article class="metric">
@@ -206,6 +298,12 @@
           <article class="panel matrix-panel">
             <div class="panel-heading">
               <h2>Confusion matrix</h2>
+              <label
+                >Display<select id="matrix-mode">
+                  <option value="counts">Counts</option>
+                  <option value="normalized">Row percentages</option>
+                </select></label
+              >
               <span class="tag fixed">Fixed benchmark</span>
             </div>
             <p>
@@ -274,6 +372,22 @@
             final bin includes 1.00. Confidence scores are uncalibrated.
           </p>
         </section>
+
+        <details class="panel benchmark-panel">
+          <summary>Coverage and probability metrics</summary>
+          <p id="probability-metrics"></p>
+          <p class="small-note">
+            Uncalibrated probabilities. More retained patches usually means more
+            errors; the observed curve need not be monotonic.
+          </p>
+          <svg
+            id="coverage-curve"
+            viewBox="0 0 600 190"
+            role="img"
+            aria-label="Retained coverage versus error rate"
+          ></svg>
+          <p id="run-links" class="small-note"></p>
+        </details>
 
         <section class="panel errors-panel" aria-labelledby="errors-heading">
           <div class="panel-heading">
@@ -371,7 +485,7 @@
           >.
         </p>
         <p>
-          Derived predictions from a frozen ImageNet encoder and logistic
+          Derived predictions from frozen image encoders and logistic
           regression. Educational research demonstration · No clinical
           validation.
         </p>

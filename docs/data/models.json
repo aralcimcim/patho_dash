@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "default": "historical-resnet18",
+  "models": [
+    {
+      "id": "historical-resnet18",
+      "model": "resnet18",
+      "label": "ResNet-18 (historical C=1)",
+      "status": "available",
+      "path": "",
+      "historical": true,
+      "benchmark_version": "historical-c1"
+    },
+    {
+      "id": "resnet18",
+      "model": "resnet18",
+      "label": "ResNet-18",
+      "status": "unavailable",
+      "reason": "Not run yet",
+      "historical": false,
+      "benchmark_version": "frozen-encoders-v1"
+    },
+    {
+      "id": "phikon-v2",
+      "model": "phikon-v2",
+      "label": "Phikon-v2",
+      "status": "unavailable",
+      "reason": "Not run yet",
+      "historical": false,
+      "benchmark_version": "frozen-encoders-v1"
+    },
+    {
+      "id": "uni2-h",
+      "model": "uni2-h",
+      "label": "UNI2-h",
+      "status": "unavailable",
+      "reason": "Not run yet",
+      "historical": false,
+      "benchmark_version": "frozen-encoders-v1"
+    }
+  ]
+}

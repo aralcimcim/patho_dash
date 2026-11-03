@@ -792,3 +792,69 @@ select {
     font-size: 1.0625rem;
   }
 }
+
+.benchmark-panel {
+  margin: 1rem 0;
+}
+.benchmark-panel summary {
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: var(--accent);
+}
+.benchmark-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono-font);
+  font-size: 0.8rem;
+}
+.benchmark-panel th,
+.benchmark-panel td {
+  padding: 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line, #45424e);
+  white-space: nowrap;
+}
+.benchmark-panel button[data-sort] {
+  padding: 0.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+}
+.comparison-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.comparison-controls label {
+  flex: 1;
+  min-width: 0;
+}
+.comparison-controls select {
+  display: block;
+  width: 100%;
+}
+#comparison-category {
+  max-width: 100%;
+  margin: 1rem 0.5rem;
+}
+#coverage-curve {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  font-family: monospace;
+  font-size: 12px;
+}
+#coverage-curve text {
+  fill: var(--ink);
+}
+#comparison-cases code {
+  white-space: nowrap;
+}
+#comparison-category {
+  display: block;
+  margin: 1rem 0;
+}
+#model-note {
+  overflow-wrap: anywhere;
+}

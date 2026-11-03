@@ -1,4 +1,9 @@
 import {
+  compareModels,
+  extendedMetrics,
+  validateExtended,
+} from "./benchmark.mjs";
+import {
   CLASSES,
   HIGH_CONFIDENCE,
   parseCSV,
@@ -40,6 +45,11 @@ const state = {
   page: 0,
   descending: true,
 };
+const modelRuns = new Map();
+let registry;
+let comparison;
+let leaderboardSort = { key: "macro_f1", descending: true };
+
 const exportColumns = [
   "image_id",
   "dataset_split",
@@ -50,6 +60,7 @@ const exportColumns = [
   "is_correct",
   "is_tumour_true",
   ...CLASSES.map((c) => `p_${c}`),
+  "run_id",
 ];
 
 function element(tag, className, text) {
@@ -117,6 +128,8 @@ function renderThresholds() {
 }
 
 function renderMatrix() {
+  $("confusion-matrix").replaceChildren();
+  const normalized = $("matrix-mode").value === "normalized";
   const { matrix, perClass, total } = state.summary;
   const head = element("thead");
   const heading = element("tr");
@@ -151,7 +164,11 @@ function renderMatrix() {
     for (let j = 0; j < CLASSES.length; j++) {
       const n = matrix[i][j];
       const td = element("td", i === j ? "diagonal" : "");
-      const button = element("button", "matrix-count", count(n));
+      const button = element(
+        "button",
+        "matrix-count",
+        normalized ? percent(n / perClass[i].actual) : count(n),
+      );
       button.type = "button";
       button.dataset.trueClass = CLASSES[i];
       button.dataset.predictedClass = CLASSES[j];
@@ -160,7 +177,11 @@ function renderMatrix() {
         `True ${CLASSES[i]}, predicted ${CLASSES[j]}: ${count(n)} patches${i === j ? ", correct predictions" : ", inspect errors"}`,
       );
       button.title = `${CLASSES[i]} → ${CLASSES[j]}: ${count(n)} patches`;
-      const strength = maximum ? n / maximum : 0;
+      const strength = normalized
+        ? n / perClass[i].actual
+        : maximum
+          ? n / maximum
+          : 0;
       const opacity = n ? 0.08 + 0.8 * strength : 0;
       const rgb = surface.map((base, index) =>
         Math.round(base + (accent[index] - base) * opacity),
@@ -210,6 +231,7 @@ function renderMatrix() {
 }
 
 function renderRecall() {
+  $("recall-chart").replaceChildren();
   const sorted = [...state.summary.perClass].sort(
     (a, b) => (b.recall ?? -1) - (a.recall ?? -1),
   );
@@ -247,6 +269,7 @@ function renderRecall() {
 }
 
 function renderConfidence() {
+  $("confidence-chart").replaceChildren();
   const maximum = Math.max(
     ...state.summary.bins.map((bin) => bin.correct + bin.incorrect),
   );
@@ -478,63 +501,394 @@ async function fetchText(file) {
   return response.text();
 }
 
-async function start() {
-  const [predictionsText, metricsText, lookupText, metadataText] =
-    await Promise.all([
-      fetchText("predictions.csv"),
-      fetchText("model_metrics.csv"),
-      fetchText("class_lookup.csv"),
-      fetchText("run_metadata.json"),
-    ]);
-  const metadata = JSON.parse(metadataText);
-  if (globalThis.crypto?.subtle) {
-    const bytes = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(predictionsText),
-    );
-    const actual = [...new Uint8Array(bytes)]
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
-    if (actual !== metadata.predictions_sha256)
-      throw new Error(
-        "Prediction checksum differs from the saved run metadata.",
-      );
-  }
-  state.metadata = metadata;
-  state.rows = preparePredictions(parseCSV(predictionsText), metadata);
-  const lookup = parseCSV(lookupText);
-  if (
-    lookup.length !== 9 ||
-    new Set(lookup.map((row) => row.class_code)).size !== 9 ||
-    lookup.some((row) => !CLASSES.includes(row.class_code))
-  )
-    throw new Error("The tissue lookup is incomplete.");
-  state.lookup = new Map(lookup.map((row) => [row.class_code, row]));
-  state.summary = summarize(state.rows);
-  const checks = checkBenchmarks(state.rows, parseCSV(metricsText), metadata);
-  if (checks.some((check) => !check.matches))
-    throw new Error(
-      "Browser calculations disagree with the fixed Python benchmarks. Please check the source files.",
-    );
-  const params = new URLSearchParams(location.search);
-  state.review = readCutoff(params, "review", metadata.protocol.review_cutoff);
-  state.tumour = readCutoff(
-    params,
-    "tumour",
-    metadata.protocol.tumour_threshold,
+async function sha256(text) {
+  if (!globalThis.crypto?.subtle)
+    throw new Error("Secure context required to verify exported results.");
+  const bytes = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
   );
+  return [...new Uint8Array(bytes)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function loadModel(item) {
+  if (!/^(runs\/[a-z0-9-]+\/)?$/.test(item.path))
+    throw new Error("Invalid model artifact path.");
+  const [predictionsText, metricsText, metadataText] = await Promise.all([
+    fetchText(item.path + "predictions.csv"),
+    fetchText(item.path + "model_metrics.csv"),
+    fetchText(item.path + "run_metadata.json"),
+  ]);
+  const metadata = JSON.parse(metadataText);
+  if ((await sha256(predictionsText)) !== metadata.predictions_sha256)
+    throw new Error("Prediction checksum differs from the saved run metadata.");
+  const rows = preparePredictions(parseCSV(predictionsText), metadata);
+  const checks = checkBenchmarks(rows, parseCSV(metricsText), metadata);
+  if (checks.some((c) => !c.matches))
+    throw new Error(
+      "Browser calculations disagree with the fixed Python benchmarks.",
+    );
+  if (
+    !item.historical &&
+    (metadata.schema_version !== 1 ||
+      metadata.run_id !== item.id ||
+      metadata.benchmark_version !== item.benchmark_version)
+  )
+    throw new Error("Model registry and run metadata disagree.");
+  let metrics = extendedMetrics(rows);
+  if (!item.historical) {
+    const saved = await fetchText(item.path + "metrics.json");
+    if ((await sha256(saved)) !== metadata.metrics_sha256)
+      throw new Error("Aggregate metric checksum differs.");
+    metrics = JSON.parse(saved);
+    validateExtended(rows, metrics);
+  }
+  return { item, rows, metadata, metrics, summary: summarize(rows) };
+}
+
+function renderLeaderboard() {
+  const tbody = $("leaderboard-rows");
+  tbody.replaceChildren();
+  const values = (item) => {
+    const run = modelRuns.get(item.id),
+      m = run?.metrics,
+      e = run?.metadata.extraction;
+    return {
+      label: item.label,
+      macro_f1: m?.macro_f1,
+      accuracy: m?.accuracy,
+      sensitivity: m?.tumour.sensitivity,
+      specificity: m?.tumour.specificity,
+      seconds: e?.seconds,
+      memory: e?.peak_gpu_memory_gb,
+    };
+  };
+  const items = [...registry.models].sort((a, b) => {
+    const av = values(a)[leaderboardSort.key],
+      bv = values(b)[leaderboardSort.key];
+    if (av == null) return bv == null ? 0 : 1;
+    if (bv == null) return -1;
+    return (
+      (typeof av === "string" ? av.localeCompare(bv) : av - bv) *
+      (leaderboardSort.descending ? -1 : 1)
+    );
+  });
+  for (const item of items) {
+    const v = values(item),
+      tr = element("tr");
+    tr.append(element("td", "", item.label));
+    for (const key of ["macro_f1", "accuracy", "sensitivity", "specificity"])
+      tr.append(element("td", "", percent(v[key] ?? null)));
+    tr.append(
+      element("td", "", v.seconds == null ? "—" : v.seconds.toFixed(1)),
+      element("td", "", v.memory == null ? "—" : v.memory.toFixed(2)),
+    );
+    tr.append(
+      element(
+        "td",
+        "",
+        `${item.benchmark_version} · ${modelRuns.has(item.id) ? (item.historical ? "Historical reference" : "Complete") : item.reason || "Unavailable"}`,
+      ),
+    );
+    tbody.append(tr);
+  }
+  document.querySelectorAll("[data-sort]").forEach((button) => {
+    const active = button.dataset.sort === leaderboardSort.key;
+    button.parentElement.setAttribute(
+      "aria-sort",
+      active
+        ? leaderboardSort.descending
+          ? "descending"
+          : "ascending"
+        : "none",
+    );
+    button.textContent =
+      button.textContent.replace(/ [↓↑]$/, "") +
+      (active ? (leaderboardSort.descending ? " ↓" : " ↑") : "");
+  });
+}
+
+function renderComparison() {
+  $("comparison-results").hidden = true;
+  comparison = null;
+  const first = modelRuns.get($("compare-first").value),
+    second = modelRuns.get($("compare-second").value);
+  if (!first || !second || first === second) {
+    setText(
+      "comparison-status",
+      "Publish two completed runs under the same benchmark protocol to compare them.",
+    );
+    return;
+  }
+  try {
+    comparison = compareModels(first, second);
+  } catch (error) {
+    setText("comparison-status", error.message);
+    return;
+  }
+  setText(
+    "comparison-status",
+    `${first.item.label} → ${second.item.label} · ${count(first.rows.length)} aligned test patches`,
+  );
+  $("comparison-recall").replaceChildren();
+  for (const c of comparison.recall) {
+    const tr = element("tr");
+    for (const v of [
+      c.code,
+      percent(c.first),
+      percent(c.second),
+      `${c.difference >= 0 ? "+" : ""}${(100 * c.difference).toFixed(2)}`,
+    ])
+      tr.append(element("td", "", v));
+    $("comparison-recall").append(tr);
+  }
+  $("comparison-results").hidden = false;
+  renderComparisonCases();
+}
+
+function comparisonCases() {
+  return (
+    comparison?.cases.filter((row) => row[$("comparison-category").value]) || []
+  );
+}
+function renderComparisonCases() {
+  if (!comparison) return;
+  const c = comparison.counts;
+  setText(
+    "comparison-counts",
+    `Corrected ${count(c.corrected)} · New errors ${count(c.regression)} · Both wrong ${count(c.both_wrong)} · Disagreements ${count(c.disagreement)}`,
+  );
+  $("comparison-cases").replaceChildren();
+  for (const row of comparisonCases().slice(0, 20)) {
+    const tr = element("tr");
+    for (const key of [
+      "image_id",
+      "true_class",
+      "first_prediction",
+      "second_prediction",
+    ]) {
+      const td = element(
+        "td",
+        "",
+        key === "image_id" ? row[key].split("/").at(-1) : row[key],
+      );
+      td.title = row[key];
+      tr.append(td);
+    }
+    $("comparison-cases").append(tr);
+  }
+  $("download-comparison").disabled = !comparisonCases().length;
+}
+
+function downloadCSV(rows, columns, filename) {
+  const url = URL.createObjectURL(
+    new Blob([toCSV(rows, columns)], { type: "text/csv;charset=utf-8" }),
+  );
+  const link = element("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function renderCurve(run) {
+  const m = run.metrics;
+  setText(
+    "probability-metrics",
+    `Balanced accuracy ${percent(m.balanced_accuracy)} · Macro AUROC ${percent(m.macro_auroc)} · Log loss ${m.log_loss.toFixed(4)} · Multiclass Brier ${m.brier_score.toFixed(4)} · Tumour AUROC ${percent(m.tumour.auroc)} · Tumour AP ${percent(m.tumour.average_precision)}`,
+  );
+  const svg = $("coverage-curve"),
+    ns = "http://www.w3.org/2000/svg";
+  svg.replaceChildren();
+  const node = (tag, attrs, text) => {
+    const n = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text) n.textContent = text;
+    return n;
+  };
+  svg.append(
+    node("path", { d: "M45 10V150H580", stroke: "currentColor", fill: "none" }),
+  );
+  for (const [x, y, text] of [
+    [45, 170, "0%"],
+    [550, 170, "100%"],
+    [235, 187, "Retained coverage"],
+    [5, 16, "100%"],
+    [15, 150, "0%"],
+  ])
+    svg.append(node("text", { x, y }, text));
+  const points = (m.review_curve || extendedMetrics(run.rows).review_curve)
+    .filter((r) => r.retained_error !== null)
+    .map((r) => `${45 + r.coverage * 535},${150 - r.retained_error * 140}`)
+    .join(" ");
+  svg.append(
+    node("polyline", {
+      points,
+      stroke: "var(--accent)",
+      "stroke-width": 2,
+      fill: "none",
+    }),
+  );
+  svg.append(node("text", { x: 55, y: 20 }, "Retained error rate"));
+  const links = $("run-links");
+  links.replaceChildren();
+  for (const [file, label] of [
+    ["predictions.csv", "Predictions CSV"],
+    ["run_metadata.json", "Run metadata"],
+  ]) {
+    const a = element("a", "", label);
+    a.href = `./data/${run.item.path}${file}`;
+    links.append(a, document.createTextNode(" · "));
+  }
+}
+
+function activateModel(id, fromURL = false) {
+  const run = modelRuns.get(id);
+  if (!run) return;
+  state.rows = run.rows;
+  state.metadata = run.metadata;
+  state.summary = run.summary;
+  $("model-select").value = id;
+  setText(
+    "model-note",
+    run.item.historical
+      ? "Historical fixed C=1 reference. Re-run ResNet-18 with validation-selected C for a controlled encoder comparison."
+      : `${run.item.benchmark_version} · ${run.metadata.run_id} · Uncalibrated probabilities`,
+  );
+  const params = new URLSearchParams(location.search);
+  if (fromURL) {
+    state.review = readCutoff(
+      params,
+      "review",
+      state.metadata.protocol.review_cutoff,
+    );
+    state.tumour = readCutoff(
+      params,
+      "tumour",
+      state.metadata.protocol.tumour_threshold,
+    );
+  }
   renderSummary();
   renderThresholds();
   renderMatrix();
   renderRecall();
   renderConfidence();
-  renderErrors();
-  bindControls();
-  $("dashboard").hidden = false;
+  clearErrorFilters();
+  renderCurve(run);
   setText(
     "load-status",
-    `${count(state.rows.length)} held-out patches · ${count(metadata.train_images)} training patches · Saved evaluation from ${new Date(metadata.completed_at_utc).toISOString().slice(0, 10)}`,
+    `${run.item.label} · ${count(run.rows.length)} held-out patches · ${count(run.metadata.train_images)} development patches · Saved evaluation ${run.metadata.completed_at_utc.slice(0, 10)}`,
   );
+}
+
+async function start() {
+  const [registryText, lookupText] = await Promise.all([
+    fetchText("models.json"),
+    fetchText("class_lookup.csv"),
+  ]);
+  registry = JSON.parse(registryText);
+  if (
+    registry.schema_version !== 1 ||
+    new Set(registry.models.map((m) => m.id)).size !== registry.models.length
+  )
+    throw new Error("Invalid model registry.");
+  const lookup = parseCSV(lookupText);
+  if (
+    lookup.length !== 9 ||
+    new Set(lookup.map((r) => r.class_code)).size !== 9 ||
+    lookup.some((r) => !CLASSES.includes(r.class_code))
+  )
+    throw new Error("The tissue lookup is incomplete.");
+  state.lookup = new Map(lookup.map((r) => [r.class_code, r]));
+  const available = registry.models.filter(
+    (item) => item.status === "available",
+  );
+  const loaded = await Promise.allSettled(available.map(loadModel));
+  loaded.forEach((result, i) => {
+    if (result.status === "fulfilled")
+      modelRuns.set(available[i].id, result.value);
+    else {
+      available[i].reason = `Validation failed: ${result.reason.message}`;
+    }
+  });
+  const requested = new URLSearchParams(location.search).get("model");
+  const selected =
+    requested && modelRuns.has(requested) ? requested : registry.default;
+  if (!modelRuns.has(selected))
+    throw new Error(
+      registry.models.find((m) => m.id === selected)?.reason ||
+        "No valid completed model is available.",
+    );
+  for (const id of ["model-select", "compare-first", "compare-second"]) {
+    $(id).replaceChildren();
+    for (const item of registry.models) {
+      const option = element(
+        "option",
+        "",
+        item.label +
+          (modelRuns.has(item.id) ? "" : ` — ${item.reason || "unavailable"}`),
+      );
+      option.value = item.id;
+      option.disabled = !modelRuns.has(item.id);
+      $(id).append(option);
+    }
+    $(id).value = selected;
+    $(id).disabled = modelRuns.size < 2;
+  }
+  const comparable = [...modelRuns.values()].filter((r) => !r.item.historical);
+  if (comparable.length >= 2) {
+    $("compare-first").value = comparable[0].item.id;
+    $("compare-second").value = comparable[1].item.id;
+  }
+  activateModel(selected, true);
+  renderLeaderboard();
+  renderComparison();
+  bindControls();
+  $("model-select").addEventListener("change", (event) => {
+    activateModel(event.target.value);
+    const url = new URL(location.href);
+    url.searchParams.set("model", event.target.value);
+    history.replaceState(null, "", url);
+  });
+  $("matrix-mode").addEventListener("change", () => {
+    renderMatrix();
+    renderSelection();
+  });
+  for (const id of ["compare-first", "compare-second"])
+    $(id).addEventListener("change", renderComparison);
+  $("comparison-category").addEventListener("change", renderComparisonCases);
+  $("download-comparison").addEventListener("click", () =>
+    downloadCSV(
+      comparisonCases(),
+      [
+        "image_id",
+        "true_class",
+        "first_prediction",
+        "second_prediction",
+        "corrected",
+        "regression",
+        "both_wrong",
+        "disagreement",
+      ],
+      "model-comparison.csv",
+    ),
+  );
+  document.querySelectorAll("[data-sort]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const key = button.dataset.sort;
+      leaderboardSort = {
+        key,
+        descending:
+          key === leaderboardSort.key
+            ? !leaderboardSort.descending
+            : key !== "label",
+      };
+      renderLeaderboard();
+    }),
+  );
+  $("dashboard").hidden = false;
   $("load-status").classList.add("loaded");
 }
 
